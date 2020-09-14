@@ -11,14 +11,14 @@ class HomeBroker(object):
         stockToSave = self.findStock(code)
         if(not stockToSave):
             return "Ação não encontrada!"
-        self.wishList.append(self.findStock(code))
+        self.quoteList.append(self.findStock(code))
         return "A ação {0} foi adicionada a sua lista de cotações".format(code)
     
     def removeStockToQuoteList(self, code):
         stockToRemove = self.findStock(code)
         if(not stockToRemove):
             return "Ação não encontrada!"
-        self.wishList.remove(self.findStock(code))
+        self.quoteList.remove(self.findStock(code))
         return "A ação {0} foi removida a sua lista de cotações".format(code)
 
     def getQuoteList(self):
