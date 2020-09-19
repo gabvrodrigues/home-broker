@@ -4,15 +4,11 @@ import Pyro4
 # Pyro4.config.COMMTIMEOUT=0.5
 
 class Callback(object):
-    def crash(self):
-        a=1
-        b=0
-        return a//b
     @Pyro4.expose
     @Pyro4.callback
     def call(self):
         print("callback received")
-        return self.crash()
+        
 
 daemon = Pyro4.core.Daemon()
 callback = Callback()
@@ -50,8 +46,9 @@ while True:
         quantity = input("Quantidade: ").strip()
         price = input("Preço: ").strip()
         print(homeBroker.buyStock(code, quantity, price))
-        homeBroker._pyroOneway.add("doCallback")
+        # homeBroker._pyroOneway.add("doCallback")
         homeBroker.doCallback(callback)
+
     elif(option == "5"):
         code = input("Código: ").strip()
         quantity = input("Quantidade: ").strip()
