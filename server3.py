@@ -1,14 +1,13 @@
 import time
 from Pyro5.api import expose, oneway, serve
 import uuid
-
+import Pyro5.server
 
 class Worker(object):
     def __init__(self, callback):
         self.callback = callback
         self.counter = 0
         self.orderExecuted = False
-        print("Worker created")
 
     @expose
     @oneway
@@ -18,58 +17,41 @@ class Worker(object):
 
         if(not stock):
             return None
-        orderToBuy = {"id": uuid.uuid4(), "code": order["code"], "quantity": order["quantity"], "price": order["price"]}
-        callbackServer.bookBuy.append(orderToBuy)
-
-        while(self.counter < int(order["time"]) or self.orderExecuted):
-            print("Buscando ordem...")
+        if(order["type"] == "buy"):
+            orderToBuy = {"id": uuid.uuid4(), "code": order["code"], "quantity": order["quantity"], "price": order["price"]}
+            callbackServer.bookBuy.append(orderToBuy)
+        else:
+            orderToSell = {"id": uuid.uuid4(), "code": order["code"], "quantity": order["quantity"], "price": order["price"]}
+            callbackServer.bookSell.append(orderToSell)
+        while(self.counter < int(order["time"]) and self.orderExecuted == False):
             if(order["type"] == "buy"):
-                self.orderExecuted = CallbackServer.executeOrderBuy(callbackServer, order)
-            else:
-                self.orderExecuted = CallbackServer.executeOrderSell(callbackServer, order)
+                self.orderExecuted = CallbackServer.executeOrderBuy(callbackServer, orderToBuy)
             time.sleep(1)
             self.counter += 1
-        print("Worker done. Informing callback client.")
+        print("Enviando notificação para o cliente...")
         self._pyroDaemon.unregister(self)
         self.callback._pyroClaimOwnership()
         if(not self.orderExecuted):
-            self.callback.done("Ordem de {0} ações {1} no valor {2} expirou!".format(order["quantity"], order["code"], order["price"]))
+            self.callback.done("\nOrdem de {0} ações {1} no valor {2} expirou!".format(order["quantity"], order["code"], order["price"]))
         else:
-            self.callback.done("Ordem de {0} ações {1} no valor {2} foi executada com sucesso!".format(order["quantity"], order["code"], order["price"]))
+            self.callback.done("\nOrdem de {0} ações {1} no valor {2} foi executada com sucesso!".format(order["quantity"], order["code"], order["price"]))
 
-class ClientWorker(object):
-    def __init__(self, callback):
-        self.callback = callback
-        self.leave = False
-        print("Client created")
-    
-    @expose
-    @oneway
-    def createClient(self):
-        callbackServer = CallbackServer()
-        while (not self.leave):
-            print("Server Running")
-            self.leave = CallbackServer.isTheEnd(callbackServer)
-            time.sleep(1)
-        self._pyroDaemon.unregister(self)
-        self.callback._pyroClaimOwnership()    
-        self.callback.finish()
-
+@Pyro5.server.behavior(instance_mode="single")
 class CallbackServer(object):
     stocks = [{"code": "PETR4", "price": 15.90}, {"code": "VALE3", "price" : 30.20}]
-    bookSell = []
+    bookSell = [{"id": uuid.uuid4(), "code": "PETR4", "quantity": "100", "price": "10.10"}]
     bookBuy = []
-    leave = False
 
     def __init__(self):
         self.quoteList = []
         self.myStocks = []
 
     def executeOrderBuy(self, orderToExecute):
-        for order in self.bookSell:
+        for index, order in enumerate(self.bookSell):
             if(order["code"] == orderToExecute["code"] and order["quantity"] >= orderToExecute["quantity"] 
             and order['price'] == orderToExecute["price"]):
                 self.myStocks.append({"code": orderToExecute["code"], "quantity": orderToExecute["quantity"], "price": orderToExecute["price"]})
+                print(self.myStocks)
                 self.bookSell.remove(order)
                 self.bookBuy.remove(self.findOrderBuy(orderToExecute['id']))
                 return True
@@ -91,6 +73,7 @@ class CallbackServer(object):
 
     @expose
     def getMyStocks(self):
+        print(self.myStocks)
         return self.myStocks
 
     def findStock(self, code):
@@ -128,10 +111,6 @@ class CallbackServer(object):
         return "A ação {0} foi removida a sua lista de cotações".format(code)
 
     @expose
-    def goOut(self):
-        self.leave = True
-
-    @expose
     def addBuyOrder(self, callback):
         print("server: adding worker")
         worker = Worker(callback)
@@ -142,13 +121,6 @@ class CallbackServer(object):
     def addSellOrder(self, callback):
         print("server: adding worker")
         worker = Worker(callback)
-        self._pyroDaemon.register(worker)  # make it a Pyro object
-        return worker
-
-    @expose
-    def addClient(self, callback):
-        print("server: adding client")
-        worker = ClientWorker(callback)
         self._pyroDaemon.register(worker)  # make it a Pyro object
         return worker
 
