@@ -44,7 +44,25 @@ class Worker(object):
     @expose
     @oneway
     def addStockToAlert(self, stock):
-        stock = CallbackServer.findStock(self.callbackServer, stock["code"])
+        stockToAnalyse = CallbackServer.findStock(self.callbackServer, stock["code"])
+        print(stockToAnalyse, stock['price'])
+        if(stock["alertType"] == 'g'):
+            while (float(stockToAnalyse['price']) < float(stock['price'])):
+                stockToAnalyse = CallbackServer.findStock(self.callbackServer, stock["code"])
+                time.sleep(1)
+            print("Enviando notificação para o cliente...")
+            self._pyroDaemon.unregister(self)
+            self.callback._pyroClaimOwnership()
+            self.callback.done("\nA ação {0} atingiu o limite de ganho de {1}!".format(stock["code"], stock["price"]))
+
+        elif(stock["alertType"] == 'p'):
+            while (float(stockToAnalyse['price']) > float(stock['price'])):
+                stockToAnalyse = CallbackServer.findStock(self.callbackServer, stock["code"])
+                time.sleep(1)
+            print("Enviando notificação para o cliente...")
+            self._pyroDaemon.unregister(self)
+            self.callback._pyroClaimOwnership()
+            self.callback.done("\nA ação {0} atingiu o limite de perda de {1}!".format(stock["code"], stock["price"]))
 
 def updateStockPrice():
     global stocks
