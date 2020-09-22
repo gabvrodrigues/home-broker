@@ -106,7 +106,7 @@ class CallbackServer(object):
         return self.myStocks
 
     def findStock(self, code):
-        for stock in self.stocks:
+        for stock in stocks:
             if(stock['code'] == code):
                 return stock
 
