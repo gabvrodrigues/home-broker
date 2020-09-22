@@ -4,28 +4,30 @@ import uuid
 import Pyro5.server
 
 class Worker(object):
-    def __init__(self, callback):
+    def __init__(self, callback, callbackServer):
         self.callback = callback
+        self.callbackServer = callbackServer
         self.counter = 0
         self.orderExecuted = False
 
     @expose
     @oneway
-    def work(self, order):
-        callbackServer = CallbackServer()
-        stock = CallbackServer.findStock(callbackServer, order["code"])
+    def tryExecuteOrder(self, order):
+        stock = CallbackServer.findStock(self.callbackServer, order["code"])
 
         if(not stock):
             return None
         if(order["type"] == "buy"):
             orderToBuy = {"id": uuid.uuid4(), "code": order["code"], "quantity": order["quantity"], "price": order["price"]}
-            callbackServer.bookBuy.append(orderToBuy)
+            self.callbackServer.bookBuy.append(orderToBuy)
         else:
             orderToSell = {"id": uuid.uuid4(), "code": order["code"], "quantity": order["quantity"], "price": order["price"]}
-            callbackServer.bookSell.append(orderToSell)
+            self.callbackServer.bookSell.append(orderToSell)
         while(self.counter < int(order["time"]) and self.orderExecuted == False):
             if(order["type"] == "buy"):
-                self.orderExecuted = CallbackServer.executeOrderBuy(callbackServer, orderToBuy)
+                self.orderExecuted = CallbackServer.executeOrderBuy(self.callbackServer, orderToBuy)
+            else:
+                self.orderExecuted = CallbackServer.findOrderSell(self.callbackServer, orderToSell['id'])
             time.sleep(1)
             self.counter += 1
         print("Enviando notificação para o cliente...")
@@ -36,7 +38,12 @@ class Worker(object):
         else:
             self.callback.done("\nOrdem de {0} ações {1} no valor {2} foi executada com sucesso!".format(order["quantity"], order["code"], order["price"]))
 
-@Pyro5.server.behavior(instance_mode="single")
+    @expose
+    @oneway
+    def addStockToAlert(self, stock):
+        stock = CallbackServer.findStock(self.callbackServer, stock["code"])
+
+
 class CallbackServer(object):
     stocks = [{"code": "PETR4", "price": 15.90}, {"code": "VALE3", "price" : 30.20}]
     bookSell = [{"id": uuid.uuid4(), "code": "PETR4", "quantity": "100", "price": "10.10"}]
@@ -51,29 +58,19 @@ class CallbackServer(object):
             if(order["code"] == orderToExecute["code"] and order["quantity"] >= orderToExecute["quantity"] 
             and order['price'] == orderToExecute["price"]):
                 self.myStocks.append({"code": orderToExecute["code"], "quantity": orderToExecute["quantity"], "price": orderToExecute["price"]})
+                self.quoteList.append(order)
                 print(self.myStocks)
                 self.bookSell.remove(order)
                 self.bookBuy.remove(self.findOrderBuy(orderToExecute['id']))
                 return True
         return False
-    
-    def executeOrderSell(self, orderToExecute):
-        for order in self.bookBuy:
-            if(order["code"] == orderToExecute["code"] and order["quantity"] >= orderToExecute["quantity"] 
-            and order['price'] == orderToExecute["price"]):
-                self.myStocks.append({"code": orderToExecute["code"], "quantity": orderToExecute["quantity"], "price": orderToExecute["price"]})
-                self.bookBuy.remove(order)
-                self.bookSell.remove(self.findOrderSell(orderToExecute['id']))
-                return True
-        return False                
-
+              
     @expose
     def getQuoteList(self):
         return self.quoteList
 
     @expose
     def getMyStocks(self):
-        print(self.myStocks)
         return self.myStocks
 
     def findStock(self, code):
@@ -89,10 +86,8 @@ class CallbackServer(object):
     def findOrderSell(self, id):
         for order in self.bookSell:
             if(order['id'] == id):
-                return order
-
-    def isTheEnd(self):
-        return self.leave
+                return False
+        return True
 
     @expose
     def addStockToQuoteList(self, code):
@@ -111,16 +106,9 @@ class CallbackServer(object):
         return "A ação {0} foi removida a sua lista de cotações".format(code)
 
     @expose
-    def addBuyOrder(self, callback):
+    def createWorker(self, callback):
         print("server: adding worker")
-        worker = Worker(callback)
-        self._pyroDaemon.register(worker)  # make it a Pyro object
-        return worker
-    
-    @expose
-    def addSellOrder(self, callback):
-        print("server: adding worker")
-        worker = Worker(callback)
+        worker = Worker(callback, self)
         self._pyroDaemon.register(worker)  # make it a Pyro object
         return worker
 
