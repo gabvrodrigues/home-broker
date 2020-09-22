@@ -90,18 +90,25 @@ class CallbackServer(object):
         for index, order in enumerate(self.bookSell):
             if(order["code"] == orderToExecute["code"] and order["quantity"] >= orderToExecute["quantity"] 
             and order['price'] == orderToExecute["price"]):
+                # procura se o stock já está na lista do cliente
                 for stock in self.myStocks:
                     if stock["code"] == orderToExecute["code"]:
+                        stock["price"] = (float(stock["quantity"] * stock["price"]) + float(orderToExecute["quantity"] * orderToExecute["price"])) / int(stock["quantity"] + orderToExecute["quantity"])
                         stock["quantity"] = int(stock["quantity"]) + int(orderToExecute["quantity"])
                         stockAddSucess = 1
-                        
+                # se for stock nova, adiciona pela primeira vez   
                 if stockAddSucess == 0:
                     self.myStocks.append({"code": orderToExecute["code"], "quantity": orderToExecute["quantity"], "price": orderToExecute["price"]})
                     self.quoteList.append(order)
                     stockAddSucess = 1
+                # desconta quantidade comprada da ordem de venda se ainda sobrar quantidade para vender
+                if orderToExecute["quantity"] < order["quantity"]:
+                    order["quantity"] = int(order["quantity"]) - int(orderToExecute["quantity"])
+                # senão deleta toda a ordem de venda
+                else:
+                    self.bookSell.remove(order)
 
                 print(self.myStocks)
-                self.bookSell.remove(order)
                 self.bookBuy.remove(self.findOrderBuy(orderToExecute['id']))
                 return True
         return False
