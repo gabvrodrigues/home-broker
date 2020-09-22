@@ -32,7 +32,7 @@ class CallbackHandler(object):
 
 def readInput():
     global option
-    option = input('Escolha: ').strip()
+    option = input(bcolors.WARNING + bcolors.BOLD + 'Escolha: ' + bcolors.ENDC).strip()
 
 def printMenu():
     print(bcolors.BOLD + "-----------HOME BROKER-----------" +  bcolors.ENDC)
@@ -57,27 +57,32 @@ def menu(homeBroker):
     if(option == "1"):
         code = input("Código: ").strip()
         print(homeBroker.addStockToQuoteList(code))
+
     elif(option == "2"):
         code = input("Código: ").strip()
         print(homeBroker.removeStockToQuoteList(code))
+
     elif(option == "3"):
         if(len(homeBroker.getQuoteList()) == 0):
             print("Nenhuma ação encontrada")
         else:
             for stock in homeBroker.getQuoteList():
                 print("{0} - {1}".format(stock["code"], stock["price"]))
+
     elif(option == "4"):
         code = input("Código: ").strip()
         quantity = input("Quantidade: ").strip()
         price = input("Preço: ").strip()
         time = input("Tempo(s): ").strip()
         storeOrder({"code": code, "quantity": quantity, "price": price, "time": time, "type": "buy"}, homeBroker)
+
     elif(option == "5"):
         code = input("Código: ").strip()
         quantity = input("Quantidade: ").strip()
         price = input("Preço: ").strip()
         time = input("Tempo(s): ").strip()
         storeOrder({"code": code, "quantity": quantity, "price": price, "time": time, "type": "sell"}, homeBroker)
+
     elif(option == "6"):
         myStocks = homeBroker.getMyStocks()
         if(len(myStocks) == 0):
@@ -85,10 +90,12 @@ def menu(homeBroker):
         else:
             for stock in myStocks:
                 print("{0} - {1}".format(stock["code"], stock["price"]))
+
     elif(option == "7"):
         code = input("Código: ").strip()
         price = input("Preço: ").strip()
-        createAlert({"code": code, "price": price}, homeBroker)
+        alertType = input("Tipo de Alerta - Ganho (g) ou Perda (p): ").strip()
+        createAlert({"code": code, "price": price, 'alertType': alertType}, homeBroker)
 
     option = None
     running = True
@@ -121,7 +128,7 @@ def threadAlert(stock, homeBroker):
         
         worker = homeBroker.createWorker(callback)
         worker.addStockToAlert(stock)
-        print("Ordem enviada com sucesso!")
+        print("Alerta criado com sucesso!")
         ordemFinalizada = 1
         daemon2.requestLoop(loopCondition=lambda: CallbackHandler.workdone != True)
         CallbackHandler.workdone = False
