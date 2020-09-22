@@ -1,7 +1,10 @@
-import time
+import time, threading
 from Pyro5.api import expose, oneway, serve
 import uuid
 import Pyro5.server
+import random
+
+stocks = [{"code": "PETR4", "price": 15.90}, {"code": "VALE3", "price" : 30.20}]
 
 class Worker(object):
     def __init__(self, callback, callbackServer):
@@ -43,11 +46,22 @@ class Worker(object):
     def addStockToAlert(self, stock):
         stock = CallbackServer.findStock(self.callbackServer, stock["code"])
 
+def updateStockPrice():
+    global stocks
+    for stock in stocks:
+        n = random.uniform(-1,1) # The random() method in random module generates a float number between 0 and 1.
+        stock['price'] = round(stock['price'] + n, 2)
+        print(stock)
+    threading.Timer(2, updateStockPrice).start()
+    return
 
 class CallbackServer(object):
-    stocks = [{"code": "PETR4", "price": 15.90}, {"code": "VALE3", "price" : 30.20}]
+    global stocks
     bookSell = [{"id": uuid.uuid4(), "code": "PETR4", "quantity": "100", "price": "10.10"}]
     bookBuy = []
+
+    # chama a função do timer depois de declarar as funcões
+    updateStockPrice()
 
     def __init__(self):
         self.quoteList = []
@@ -111,7 +125,6 @@ class CallbackServer(object):
         worker = Worker(callback, self)
         self._pyroDaemon.register(worker)  # make it a Pyro object
         return worker
-
 
 serve({
     CallbackServer: "home.broker.server"
