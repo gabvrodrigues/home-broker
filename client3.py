@@ -73,6 +73,7 @@ def menu(homeBroker):
             for stock in homeBroker.getQuoteList(): #Chama o método do servidor para listar as ações da lista de cotações
                 print("{0} - {1}".format(stock["code"], stock["price"]))
 
+    #Pega as informações da nova ordem de compra
     elif(option == "4"):
         code = input("Código: ").strip()
         quantity = input("Quantidade: ").strip()
@@ -80,6 +81,7 @@ def menu(homeBroker):
         time = input("Tempo(s): ").strip()
         storeOrder({"code": code, "quantity": quantity, "price": price, "time": time, "type": "buy"}, homeBroker)
 
+    #Pega as informações da nova ordem de venda
     elif(option == "5"):
         code = input("Código: ").strip()
         quantity = input("Quantidade: ").strip()
@@ -105,6 +107,7 @@ def menu(homeBroker):
     running = True
     menu(homeBroker)
 
+#Thread criada para acompanhar a execução da ordem
 def threadExecuteOrder(order, homeBroker):
     global option, running, ordemFinalizada
     
@@ -114,13 +117,14 @@ def threadExecuteOrder(order, homeBroker):
         callback = CallbackHandler()
         daemon1.register(callback)
         
-        worker = homeBroker.createWorker(callback)
+        worker = homeBroker.createWorker(callback) #Cria worker no servidor para tentar executar a ordem
         worker.tryExecuteOrder(order)
         print("Ordem enviada com sucesso!")
         ordemFinalizada = 1
         daemon1.requestLoop(loopCondition=lambda: CallbackHandler.workdone != True)
         CallbackHandler.workdone = False
 
+#Thread criada para cada alerta cadastrado
 def threadAlert(stock, homeBroker):
     global option, running, ordemFinalizada
     
@@ -130,13 +134,14 @@ def threadAlert(stock, homeBroker):
         callback = CallbackHandler()
         daemon2.register(callback)
         
-        worker = homeBroker.createWorker(callback)
+        worker = homeBroker.createWorker(callback) #Cria worker no servidor para verificar preço da ação
         worker.addStockToAlert(stock)
         print("Alerta criado com sucesso!")
         ordemFinalizada = 1
         daemon2.requestLoop(loopCondition=lambda: CallbackHandler.workdone != True)
         CallbackHandler.workdone = False
 
+#Método que cria uma thread para receber a notificação se a ordem foi executada ou não
 def storeOrder(order, homeBroker):
     global option, running, ordemFinalizada
     _thread.start_new_thread(threadExecuteOrder, (order,homeBroker))
@@ -147,6 +152,7 @@ def storeOrder(order, homeBroker):
     ordemFinalizada = 0
     menu(homeBroker)
 
+#Método que cria uma thread para receber a notificação se a ação atingiu o preço desejado
 def createAlert(stock, homeBroker):
     global option, running, ordemFinalizada
     _thread.start_new_thread(threadAlert, (stock,homeBroker))
