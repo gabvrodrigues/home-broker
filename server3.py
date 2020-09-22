@@ -89,11 +89,15 @@ class CallbackServer(object):
         for index, order in enumerate(self.bookSell):
             if(order["code"] == orderToExecute["code"] and order["quantity"] >= orderToExecute["quantity"] 
             and order['price'] == orderToExecute["price"]):
-                self.myStocks.append({"code": orderToExecute["code"], "quantity": orderToExecute["quantity"], "price": orderToExecute["price"]})
-                self.quoteList.append(order)
-                print(self.myStocks)
-                self.bookSell.remove(order)
-                self.bookBuy.remove(self.findOrderBuy(orderToExecute['id']))
+                for stock in self.myStocks:
+                    if stock["code"] == orderToExecute["code"]:
+                        stock["quantity"] = stock["quantity"] + orderToExecute["quantity"]
+                    else:
+                        self.myStocks.append({"code": orderToExecute["code"], "quantity": orderToExecute["quantity"], "price": orderToExecute["price"]})
+                        self.quoteList.append(order)
+                    print(self.myStocks)
+                    self.bookSell.remove(order)
+                    self.bookBuy.remove(self.findOrderBuy(orderToExecute['id']))
                 return True
         return False
               
