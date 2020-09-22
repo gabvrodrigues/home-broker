@@ -30,7 +30,7 @@ class CallbackHandler(object):
     @expose
     def done(self, messageReceived):
         print(bcolors.UNDERLINE + bcolors.OKGREEN + messageReceived + bcolors.ENDC)
-        CallbackHandler.workdone = True
+        #CallbackHandler.workdone = True
 
 #Método para pegar a escolha digitada pelo usuário
 def readInput():

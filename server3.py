@@ -33,6 +33,7 @@ class Worker(object):
                 self.orderExecuted = CallbackServer.findOrderSell(self.callbackServer, orderToSell['id'])
             time.sleep(1)
             self.counter += 1
+        print(self.callbackServer.bookSell)
         print("Enviando notificação para o cliente...")
         self._pyroDaemon.unregister(self)
         self.callback._pyroClaimOwnership()
@@ -69,7 +70,7 @@ def updateStockPrice():
     for stock in stocks:
         n = random.uniform(-1,1) # The random() method in random module generates a float number between 0 and 1.
         stock['price'] = round(stock['price'] + n, 2)
-        print(stock)
+        #print(stock)
     threading.Timer(2, updateStockPrice).start()
     return
 
