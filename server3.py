@@ -75,7 +75,7 @@ def updateStockPrice():
 
 class CallbackServer(object):
     global stocks
-    bookSell = [{"id": uuid.uuid4(), "code": "PETR4", "quantity": "100", "price": "10.10"}]
+    bookSell = [{"id": uuid.uuid4(), "code": "PETR4", "quantity": "100", "price": "10.10"}, {"id": uuid.uuid4(), "code": "PETR4", "quantity": "100", "price": "20.10"}]
     bookBuy = []
 
     # chama a função do timer depois de declarar as funcões
@@ -92,7 +92,7 @@ class CallbackServer(object):
             and order['price'] == orderToExecute["price"]):
                 for stock in self.myStocks:
                     if stock["code"] == orderToExecute["code"]:
-                        stock["quantity"] = stock["quantity"] + orderToExecute["quantity"]
+                        stock["quantity"] = int(stock["quantity"]) + int(orderToExecute["quantity"])
                         stockAddSucess = 1
                         
                 if stockAddSucess == 0:

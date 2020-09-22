@@ -21,15 +21,18 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
+#Classe que trata o callback (notificação do servidor para o cliente)
 class CallbackHandler(object):
     workdone = False
     end = False
 
+    #Método chamado pelo servidor para notificar o cliente
     @expose
     def done(self, messageReceived):
         print(bcolors.UNDERLINE + bcolors.OKGREEN + messageReceived + bcolors.ENDC)
         CallbackHandler.workdone = True
 
+#Método para pegar a escolha digitada pelo usuário
 def readInput():
     global option
     option = input(bcolors.WARNING + bcolors.BOLD + 'Escolha: ' + bcolors.ENDC).strip()
@@ -43,7 +46,8 @@ def printMenu():
     print("5) Vender ação")
     print("6) Ver minha carteira")
     print("7) Adicionar alerta de preço")
-    
+
+#Método que trata as opções escolhidas pelo usuário
 def menu(homeBroker):
     global option, running
     homeBroker._pyroClaimOwnership()
@@ -56,17 +60,17 @@ def menu(homeBroker):
             print(e)      
     if(option == "1"):
         code = input("Código: ").strip()
-        print(homeBroker.addStockToQuoteList(code))
+        print(homeBroker.addStockToQuoteList(code)) #Chama o método do servidor para adicionar uma ação na lista de cotações
 
     elif(option == "2"):
         code = input("Código: ").strip()
-        print(homeBroker.removeStockToQuoteList(code))
+        print(homeBroker.removeStockToQuoteList(code)) #Chama o método do servidor para remover uma ação na lista de cotações
 
     elif(option == "3"):
         if(len(homeBroker.getQuoteList()) == 0):
             print("Nenhuma ação encontrada")
         else:
-            for stock in homeBroker.getQuoteList():
+            for stock in homeBroker.getQuoteList(): #Chama o método do servidor para listar as ações da lista de cotações
                 print("{0} - {1}".format(stock["code"], stock["price"]))
 
     elif(option == "4"):
@@ -89,7 +93,7 @@ def menu(homeBroker):
             print("Nenhuma ação encontrada")
         else:
             for stock in myStocks:
-                print("{0} - {1}".format(stock["code"], stock["price"]))
+                print("{0} - {1}".format(stock["code"], stock["quantity"]))
 
     elif(option == "7"):
         code = input("Código: ").strip()
