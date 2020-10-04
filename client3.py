@@ -172,12 +172,3 @@ def loopCallBackPrincipal():
 _thread.start_new_thread(loopCallBackPrincipal, ())
 while True:
     time.sleep(1)
-
-    
-
-
-
-
-
-
-

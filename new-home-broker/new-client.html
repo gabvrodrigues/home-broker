@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home Broker</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+        integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
+</head>
+
+<body>
+    <div id="app">
+        <div class="container mt-3">
+            <div class="row" style="justify-content: center;">
+                <h1>Home Broker</h1>
+            </div>
+        </div>
+        <br>
+        <div class="container">
+            <div class="row" style="width: 100vw">
+                <div class="col-2">
+                    <div class="row">
+                        <button type="button" class="btn btn-success btn-block m-2"
+                            v-on:click="option = 'addToQuoteList'">Adicionar ação às minhas cotações</button>
+                    </div>
+                    <div class="row">
+                        <button type="button" class="btn btn-danger btn-block m-2">Remover ação às minhas
+                            cotações</button>
+                    </div>
+                    <div class="row">
+                        <button type="button" class="btn btn-primary btn-block m-2">Ver minha lista de cotações</button>
+                    </div>
+                    <div class="row">
+                        <button type="button" class="btn btn-success btn-block m-2">Comprar ação</button>
+                    </div>
+                    <div class="row">
+                        <button type="button" class="btn btn-danger btn-block m-2">Vender ação</button>
+                    </div>
+                    <div class="row">
+                        <button type="button" class="btn btn-secondary btn-block m-2" v-on:click="showMyQuoteList()">Ver
+                            minha carteira</button>
+                    </div>
+                    <div class="row">
+                        <button type="button" class="btn btn-warning btn-block m-2">Adicionar alerta de preço</button>
+                    </div>
+                </div>
+                <div class="col-10">
+                    <div v-if="option == 'addToQuoteList'" class="ml-3">
+                        <div class="row">
+                            <div class="col-4 ">
+                                <div class="form-group">
+                                    <label for="exampleInputPassword1">Código da ação</label>
+                                    <input type="text" class="form-control" v-model="stockCode">
+                                </div>
+                            </div>
+                            <div class="col-4 my-auto">
+                                <button type="button" class="btn btn-success m-2" v-on:click="addToQuoteList()">
+                                    Adicionar </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-if="option == 'showMyQuoteList'" class="ml-3">
+                        <div class="row">
+
+                            <div class="card m-2" style="width: 16rem;" v-for="quote in myQuoteList">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ quote.code }}</h5>
+                                    <h2> R$ 15,89 </h2>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+
+</body>
+
+
+</html>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+    integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj"
+    crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"
+    integrity="sha384-9/reFTGAW83EW2RDu2S0VKaIzap3H66lZH81PoYlFhbGU+6BZp6G7niu735Sk7lN"
+    crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"
+    integrity="sha384-B4gt1jrGC7Jh4AgTPSdUtOBvfO8shuf57BaghqFfPlYxofvL8/KUEfYiJOMMV+rV"
+    crossorigin="anonymous"></script>
+<script>
+    var app = new Vue({
+        el: '#app',
+        data: {
+            id: '',
+            option: '',
+            stockCode: '',
+            myQuoteList: []
+        },
+        mounted: function () {
+            this.connectToServer()
+        },
+        beforeDestroy: function () {
+            this.disconnectToServer()
+        },
+        methods: {
+            async connectToServer() {
+                try {
+                    this.id = uuidv4()
+                    const response = await axios.get("http://localhost:5000/connect/" + this.id);
+                    console.log(response);
+
+                } catch (error) {
+                    console.error(error);
+                }
+            },
+            async disconnectToServer() {
+                try {
+                    const response = await axios.get("http://localhost:5000/disconnect/" + this.id);
+                    console.log(response);
+                } catch (error) {
+                    console.error(error);
+                }
+            },
+            async addToQuoteList() {
+                if (this.stockCode == '') return
+                try {
+                    const response = await axios.post("http://localhost:5000/add-stock-to-my-quote-list",
+                        { "userId": this.id, "stockCode": this.stockCode });
+                    alert(response.data.message);
+                    this.stockCode = '';
+                    this.option = '';
+                } catch (error) {
+                    console.error(error);
+                }
+            },
+            async showMyQuoteList() {
+                this.option = 'showMyQuoteList';
+                try {
+                    const response = await axios.get(`http://localhost:5000/show-my-quote-list/${this.id}`);
+                    console.log(response)
+                    this.myQuoteList = response.data.quoteList;
+                } catch (error) {
+                    console.error(error);
+                }
+            }
+        }
+    })
+
+    // var source = new EventSource("{{ url_for('sse.stream') }}");
+    // source.addEventListener('publish', function(event) {
+    //     var data = JSON.parse(event.data);
+    //     console.log("The server says " + data.message);
+    // }, false);
+    // source.addEventListener('error', function(event) {
+    //     console.log("Error"+ event)
+    //     alert("Failed to connect to event stream. Is Redis running?");
+    // }, false);
+    // const evtSource = new EventSource("http://localhost:5000/ping");
+    // evtSource.addEventListener("update", function (event) {
+    //     // Logic to handle status updates
+    //     console.log(event)
+    // });
+    // evtSource.addEventListener("end", function (event) {
+    //     console.log('Handling end....')
+    //     evtSource.close();
+    // });
+    // const axios = require('axios');
+
+    // var targetContainer = document.getElementById("test");
+    // var eventSource = new EventSource("http://localhost:5000/connect/" + uuidv4());
+    // eventSource.addEventListener("teste", function (e) {
+    //     console.log(e)
+    //     targetContainer.innerHTML = e.data;
+
+    //     if (e.data > 20) {
+    //         targetContainer.style.color = "red";
+    //     }
+    // });
+
+    function uuidv4() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+            var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
+</script>

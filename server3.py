@@ -6,6 +6,7 @@ import random
 
 stocks = [{"code": "PETR4", "price": 15.90}, {"code": "VALE3", "price" : 30.20}]
 
+#classe que executa as funcções das threads secundárias
 class Worker(object):
     def __init__(self, callback, callbackServer):
         self.callback = callback
@@ -13,6 +14,7 @@ class Worker(object):
         self.counter = 0
         self.orderExecuted = False
 
+    #método que tenta executar uma ordem
     @expose
     @oneway
     def tryExecuteOrder(self, order):
@@ -42,6 +44,7 @@ class Worker(object):
         else:
             self.callback.done("\nOrdem de {0} ações {1} no valor {2} foi executada com sucesso!".format(order["quantity"], order["code"], order["price"]))
 
+    #método que monitora o preço de uma ação
     @expose
     @oneway
     def addStockToAlert(self, stock):
@@ -70,7 +73,7 @@ def updateStockPrice():
     for stock in stocks:
         n = random.uniform(-1,1) # The random() method in random module generates a float number between 0 and 1.
         stock['price'] = round(stock['price'] + n, 2)
-        #print(stock)
+        print(stock)
     threading.Timer(2, updateStockPrice).start()
     return
 
@@ -88,7 +91,7 @@ class CallbackServer(object):
 
     def executeOrderBuy(self, orderToExecute):
         stockAddSucess = 0
-        for index, order in enumerate(self.bookSell):
+        for order in self.bookSell:
             if(order["code"] == orderToExecute["code"] and order["quantity"] >= orderToExecute["quantity"] 
             and order['price'] == orderToExecute["price"]):
                 # procura se o stock já está na lista do cliente
