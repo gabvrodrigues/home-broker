@@ -8,7 +8,7 @@ app = flask.Flask(__name__)
 CORS(app)
 
 clients = []
-stocks = [{"code": "PETR4"}, {"code": "VALE3"}, {"code": "MGLU3"}]
+stocks = [{"code": "PETR4", "price": 15.87}, {"code": "VALE3", "price": 54.76}, {"code": "MGLU3", "price": 89.90}]
 
 
 @app.route("/")
@@ -105,6 +105,29 @@ def addStockToMyQuoteList():
     clients[indexClient]["quoteList"].append(stocks[indexStock])
     return {"message": "A ação {0} foi adicionada à sua lista de cotações".format(stockCode)}, 200
 
+@app.route("/remove-stock-to-my-quote-list", methods=["POST"])
+def removeStockToMyQuoteList():
+    global clients
+    content = request.get_json(silent=True)
+    userId = content["userId"]
+    stockCode = content["stockCode"]
+
+    indexClient = findClientIndex(userId)
+   
+    if indexClient < 0:
+        return {"message": "Erro ao adicionar ação as cotações: cliente não encontrado!"}, 500
+
+    if len(clients[indexClient]["quoteList"]) == 0:
+        return {"message": "Erro ao remover ação as cotações: sua lista está vazia!"}, 500
+
+    indexStock = findStockInQuoteListIndex(stockCode, clients[indexClient]["quoteList"])
+    
+    if indexStock < 0:
+        return {"message": "Erro ao remover ação da sua lista de cotações: ação não encontrada!"}, 500
+
+    del clients[indexClient]["quoteList"][indexStock]
+    return {"message": "A ação {0} foi removida da sua lista de cotações".format(stockCode)}, 200
+
 
 @app.route("/listen", methods=["GET"])
 def listen():
@@ -128,6 +151,13 @@ def findClientIndex(id):
 def findStockIndex(code):
     global stocks
     for index, item in enumerate(stocks):
+        if item["code"] == code:
+            return index
+    else:
+        return -1
+
+def findStockInQuoteListIndex(code, quoteList):
+    for index, item in enumerate(quoteList):
         if item["code"] == code:
             return index
     else:
