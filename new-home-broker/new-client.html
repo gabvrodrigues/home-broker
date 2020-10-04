@@ -30,10 +30,12 @@
                             cotações</button>
                     </div>
                     <div class="row">
-                        <button type="button" class="btn btn-primary btn-block m-2" v-on:click="showMyQuoteList()">Ver minha lista de cotações</button>
+                        <button type="button" class="btn btn-primary btn-block m-2" v-on:click="showMyQuoteList()">Ver
+                            minha lista de cotações</button>
                     </div>
                     <div class="row">
-                        <button type="button" class="btn btn-success btn-block m-2">Comprar ação</button>
+                        <button type="button" class="btn btn-success btn-block m-2"
+                            v-on:click="option = 'buyStock'">Comprar ação</button>
                     </div>
                     <div class="row">
                         <button type="button" class="btn btn-danger btn-block m-2">Vender ação</button>
@@ -77,14 +79,40 @@
                     </div>
                     <div v-if="option == 'showMyQuoteList'" class="ml-3">
                         <div class="row">
-
+                            <span v-if="myQuoteList.length == 0">Você não possui nenhuma ação na lista de
+                                cotações</span>
                             <div class="card m-2" style="width: 16rem;" v-for="stock in myQuoteList">
                                 <div class="card-body">
                                     <h5 class="card-title">{{ stock.code }}</h5>
                                     <h2> R$ {{ stock.price }} </h2>
                                 </div>
                             </div>
-
+                        </div>
+                    </div>
+                    <div v-if="option == 'buyStock'" class="ml-3">
+                        <div class="row">
+                            <div class="col-4 ">
+                                <div class="form-group">
+                                    <label for="exampleInputPassword1">Código da ação</label>
+                                    <input type="text" class="form-control" v-model="stockToBuy.code">
+                                </div>
+                            </div>
+                            <div class="col-4 ">
+                                <div class="form-group">
+                                    <label for="exampleInputPassword1">Quantidade</label>
+                                    <input type="text" class="form-control" v-model="stockToBuy.quantity">
+                                </div>
+                            </div>
+                            <div class="col-4 ">
+                                <div class="form-group">
+                                    <label for="exampleInputPassword1">Preço</label>
+                                    <input type="text" class="form-control" v-model="stockToBuy.price">
+                                </div>
+                            </div>
+                            <div class="col-4 my-auto">
+                                <button type="button" class="btn btn-success m-2" v-on:click="buyStock()">
+                                    Adicionar </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -116,7 +144,8 @@
             id: '',
             option: '',
             stockCode: '',
-            myQuoteList: []
+            myQuoteList: [],
+            stockToBuy: {}
         },
         mounted: function () {
             this.connectToServer()
@@ -177,7 +206,25 @@
                 } catch (error) {
                     console.error(error);
                 }
-            }
+            },
+            async buyStock() {
+                if (this.stockToBuy.code == '' || this.stockToBuy.quantity == '' || this.stockToBuy.price == '') return
+
+                var eventSource = new EventSource("http://localhost:5000/listen-buy-stock");
+                eventSource.addEventListener("teste", function (e) {
+                    console.log(e)
+                });
+                axios.post("http://localhost:5000/buy-stock",
+                    { "userId": this.id, ...this.stockToBuy }).then((response) => {
+                        alert(response.data.message);
+                    }).catch((error) => {
+                        alert(error.response.data.message);
+                    }).finally(() => {
+                        this.stockCode = '';
+                        this.option = '';
+                    });
+            },
+
         }
     })
 
@@ -202,15 +249,7 @@
     // const axios = require('axios');
 
     // var targetContainer = document.getElementById("test");
-    // var eventSource = new EventSource("http://localhost:5000/connect/" + uuidv4());
-    // eventSource.addEventListener("teste", function (e) {
-    //     console.log(e)
-    //     targetContainer.innerHTML = e.data;
 
-    //     if (e.data > 20) {
-    //         targetContainer.style.color = "red";
-    //     }
-    // });
 
     function uuidv4() {
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
