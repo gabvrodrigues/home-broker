@@ -1,4 +1,5 @@
 import queue
+import uuid
 
 import flask
 from flask_cors import CORS
@@ -9,6 +10,7 @@ CORS(app)
 
 clients = []
 stocks = [{"code": "PETR4", "price": 15.87}, {"code": "VALE3", "price": 54.76}, {"code": "MGLU3", "price": 89.90}]
+bookBuy = []
 
 
 @app.route("/")
@@ -77,6 +79,15 @@ def disconnect(id):
     return {"message": "Cliente desconectado com sucesso!"}, 200
 
 
+@app.route("/buy-stock", methods=["POST"])
+def buyStock():
+    global clients, bookBuy
+    content = request.get_json(silent=True)
+    order = {"id": uuid.uuid4(), "userId": content.userId, "code": content.code, "quantity": content.quantity, "price": content.price}
+    bookBuy.append(order)
+    
+    return {"message": "Ordem cadastrada com sucesso!", "orderId": order["id"]}, 200
+
 @app.route("/show-my-quote-list/<id>", methods=["GET"])
 def showMyQuoteList(id):
     global clients
@@ -105,6 +116,7 @@ def addStockToMyQuoteList():
     clients[indexClient]["quoteList"].append(stocks[indexStock])
     return {"message": "A ação {0} foi adicionada à sua lista de cotações".format(stockCode)}, 200
 
+
 @app.route("/remove-stock-to-my-quote-list", methods=["POST"])
 def removeStockToMyQuoteList():
     global clients
@@ -121,13 +133,22 @@ def removeStockToMyQuoteList():
         return {"message": "Erro ao remover ação as cotações: sua lista está vazia!"}, 500
 
     indexStock = findStockInQuoteListIndex(stockCode, clients[indexClient]["quoteList"])
-    
+
     if indexStock < 0:
         return {"message": "Erro ao remover ação da sua lista de cotações: ação não encontrada!"}, 500
 
     del clients[indexClient]["quoteList"][indexStock]
     return {"message": "A ação {0} foi removida da sua lista de cotações".format(stockCode)}, 200
 
+@app.route("/listen-buy-stock/<id>", methods=["GET"])
+def listenBuyStock(id):
+    def stream(id):
+        messages = announcer.listen()  # returns a queue.Queue
+        while True:
+            msg = messages.get()  # blocks until a new message arrives
+            yield msg
+
+    return flask.Response(stream(id), mimetype="text/event-stream")
 
 @app.route("/listen", methods=["GET"])
 def listen():

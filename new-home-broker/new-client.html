@@ -210,13 +210,13 @@
             async buyStock() {
                 if (this.stockToBuy.code == '' || this.stockToBuy.quantity == '' || this.stockToBuy.price == '') return
 
-                var eventSource = new EventSource("http://localhost:5000/listen-buy-stock");
-                eventSource.addEventListener("teste", function (e) {
-                    console.log(e)
-                });
                 axios.post("http://localhost:5000/buy-stock",
                     { "userId": this.id, ...this.stockToBuy }).then((response) => {
-                        alert(response.data.message);
+                        let orderId = response.data.orderId
+                        var eventSource = new EventSource("http://localhost:5000/listen-buy-stock/" + orderId);
+                        eventSource.addEventListener("teste", function (e) {
+                            console.log(e)
+                        });
                     }).catch((error) => {
                         alert(error.response.data.message);
                     }).finally(() => {
