@@ -11,6 +11,7 @@ CORS(app)
 clients = []
 stocks = [{"code": "PETR4", "price": 15.87}, {"code": "VALE3", "price": 54.76}, {"code": "MGLU3", "price": 89.90}]
 bookBuy = []
+bookSell = []
 
 
 @app.route("/")
@@ -83,10 +84,27 @@ def disconnect(id):
 def buyStock():
     global clients, bookBuy
     content = request.get_json(silent=True)
-    order = {"id": uuid.uuid4(), "userId": content.userId, "code": content.code, "quantity": content.quantity, "price": content.price}
+    order = {"id": uuid.uuid4(), "userId": content["userId"], "code": content["code"], "quantity": content["quantity"], "price": content["price"]}
     bookBuy.append(order)
+    orderId = tryBuyStock(order)
+    print(orderId)
+    if orderId != None:
+        return {"message": "Ordem cadastrada com sucesso! Você será notificado quando a ordem for executada!", "orderId": orderId}, 200
+    else:
+        return {"message": "Ordem executada com sucesso!", "orderId": orderId}, 200
+
+@app.route("/sell-stock", methods=["POST"])
+def sellStock():
+    global clients, bookBuy, bookSell
+    content = request.get_json(silent=True)
+    order = {"id": uuid.uuid4(), "userId": content["userId"], "code": content["code"], "quantity": content["quantity"], "price": content["price"]}
+    bookSell.append(order)
+    orderId = trySellStock(order)
     
-    return {"message": "Ordem cadastrada com sucesso!", "orderId": order["id"]}, 200
+    if orderId != None:
+        return {"message": "Ordem cadastrada com sucesso! Você será notificado quando a ordem for executada!", "orderId": orderId}, 200
+    else:
+        return {"message": "Ordem executada com sucesso!", "orderId": orderId}, 200
 
 @app.route("/show-my-quote-list/<id>", methods=["GET"])
 def showMyQuoteList(id):
@@ -143,10 +161,20 @@ def removeStockToMyQuoteList():
 @app.route("/listen-buy-stock/<id>", methods=["GET"])
 def listenBuyStock(id):
     def stream(id):
-        messages = announcer.listen()  # returns a queue.Queue
+        newOrdersSell = announcer.listen()  # returns a queue.Queue
         while True:
-            msg = messages.get()  # blocks until a new message arrives
-            yield msg
+            orderToExecute = newOrdersSell.get()  # blocks until a new message arrives
+            yield orderToExecute
+
+    return flask.Response(stream(id), mimetype="text/event-stream")
+
+@app.route("/listen-sell-stock/<id>", methods=["GET"])
+def listenSellStock(id):
+    def stream(id):
+        newOrdersBuy = announcer.listen()  # returns a queue.Queue
+        while True:
+            orderToExecute = newOrdersBuy.get()  # blocks until a new message arrives
+            yield orderToExecute
 
     return flask.Response(stream(id), mimetype="text/event-stream")
 
@@ -160,6 +188,25 @@ def listen():
 
     return flask.Response(stream(), mimetype="text/event-stream")
 
+def trySellStock(orderToExecute):
+    global bookBuy
+    for order in bookBuy:
+         if(order["code"] == orderToExecute["code"] and order["quantity"] >= orderToExecute["quantity"] 
+            and order['price'] == orderToExecute["price"]):
+            msg = format_sse(data="Ordem Executada com sucesso", event="teste")
+            announcer.announce(msg=msg)
+            return None
+    return orderToExecute["id"]
+
+def tryBuyStock(orderToExecute):
+    global bookSell
+    for order in bookSell:
+         if(order["code"] == orderToExecute["code"] and order["quantity"] >= orderToExecute["quantity"] 
+            and order['price'] == orderToExecute["price"]):
+            msg = format_sse(data="Ordem Executada com sucesso", event="teste")
+            announcer.announce(msg=msg)
+            return None
+    return orderToExecute["id"]
 
 def findClientIndex(id):
     global clients
