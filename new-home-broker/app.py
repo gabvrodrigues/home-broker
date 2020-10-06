@@ -101,10 +101,10 @@ def buyStock():
 
     bookBuy.append(order)
     orderToBuy = tryBuyStock(order)
-    if orderToBuy == None:
-        return {"message": "Ordem de compra de {0}x {1} por R${2} foi cadastrada com sucesso! Você será notificado quando a ordem for executada!".format(order["quantity"], order["code"], order["price"]), "orderId": orderToBuy}, 200
+    if orderToBuy != None:
+        return {"message": "Ordem de compra de {0}x {1} por R${2} foi cadastrada com sucesso! Você será notificado quando a ordem for executada!".format(order["quantity"], order["code"], order["price"]), "orderId": orderToBuy['id']}, 200
     else:
-        return {"message": "Ordem de compra de {0}x {1} por R${2} foi executada com sucesso!".format(order["quantity"], order["code"], order["price"]), "orderId": orderToBuy['id']}, 200
+        return {"message": "Ordem de compra de {0}x {1} por R${2} foi executada com sucesso!".format(order["quantity"], order["code"], order["price"]), "orderId": orderToBuy}, 200
 
 @app.route("/sell-stock", methods=["POST"])
 def sellStock():
@@ -130,7 +130,7 @@ def sellStock():
     elif orderToSell == -1:
         return {"message": "Ordem de venda inválida!", "orderId": None}, 200
     else:
-        return {"message": "Ordem de venda de {0}x {1} por R${2} foi executada com sucesso!".format(orderToSell["quantity"], order["code"], order["price"]), "orderId": orderToSell["id"]}, 200
+        return {"message": "Ordem de venda de {0}x {1} por R${2} foi executada com sucesso!".format(order["quantity"], order["code"], order["price"]), "orderId": orderToSell}, 200
 
 @app.route("/show-my-quote-list/<id>", methods=["GET"])
 def showMyQuoteList(id):
@@ -211,8 +211,11 @@ def listenBuyStock(id):
         global bookBuy
         orderIndex = findOrderBuyIndex(id)
         newOrdersSell = bookBuy[orderIndex]["announcer"].listen()  # returns a queue.Queue
+        cont = 1
         while True:
             orderToExecute = newOrdersSell.get()  # blocks until a new message arrives
+            print(cont)
+            cont += 1
             yield orderToExecute
 
     return flask.Response(stream(id), mimetype="text/event-stream")
@@ -322,8 +325,8 @@ def tryBuyStock(orderToExecute):
 
             msg = format_sse(data="Ordem de venda de {0}x {1} por {2} foi executada com sucesso".format(order["quantity"], order["code"], order["price"]), event="listenSell")
             order["announcer"].announce(msg=msg)
-            return orderToExecute
-    return None
+            return None
+    return orderToExecute
 
 
 def findAlertIndex(id):
