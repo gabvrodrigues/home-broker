@@ -2,6 +2,7 @@ import queue
 import uuid
 import threading
 import random
+import time
 
 import flask
 from flask_cors import CORS
@@ -97,9 +98,13 @@ def buyStock():
     content = request.get_json(silent=True)
     announcer = MessageAnnouncer()
     order = {"id": uuid.uuid4(), "userId": content["userId"], "code": content["code"], "quantity": content["quantity"], 
-    "price": content["price"], "announcer": announcer}
+    "price": content["price"], "timeToExecute": float(content['time']), "timer": 0, "announcer": announcer}
 
     bookBuy.append(order)
+
+    orderTimer = threading.Thread(target=addOrderBuyTimer, args=(order,))
+    orderTimer.start()
+
     orderToBuy = tryBuyStock(order)
     if orderToBuy != None:
         return {"message": "Ordem de compra de {0}x {1} por R${2} foi cadastrada com sucesso! Você será notificado quando a ordem for executada!".format(order["quantity"], order["code"], order["price"]), "orderId": orderToBuy['id']}, 200
@@ -112,7 +117,7 @@ def sellStock():
     content = request.get_json(silent=True)
     announcer = MessageAnnouncer()
     order = {"id": uuid.uuid4(), "userId": content["userId"], "code": content["code"], "quantity": content["quantity"], 
-    "price": content["price"], "announcer": announcer}
+    "price": content["price"], "timeToExecute": float(content['time']), "timer": 0, "announcer": announcer}
 
     # procura se o stock está na lista do cliente
     clientSellerIndex = findClientIndex(order["userId"])
@@ -122,6 +127,10 @@ def sellStock():
         return {"message": "Ordem de venda inválida!", "orderId": None}, 200
     
     bookSell.append(order)
+
+    orderTimer = threading.Thread(target=addOrderSellTimer, args=(order,))
+    orderTimer.start()
+
     orderToSell = trySellStock(order, stock)
     
     if orderToSell != None:
@@ -211,11 +220,8 @@ def listenBuyStock(id):
         global bookBuy
         orderIndex = findOrderBuyIndex(id)
         newOrdersSell = bookBuy[orderIndex]["announcer"].listen()  # returns a queue.Queue
-        cont = 1
         while True:
             orderToExecute = newOrdersSell.get()  # blocks until a new message arrives
-            print(cont)
-            cont += 1
             yield orderToExecute
 
     return flask.Response(stream(id), mimetype="text/event-stream")
@@ -281,7 +287,7 @@ def trySellStock(orderToExecute, stock):
             
             bookBuy.remove(orderOnBookBuy)
 
-            msg = format_sse(data="Ordem de compra de {0}x {1} por {2} foi executada com sucesso".format(orderOnBookBuy["quantity"], orderOnBookBuy["code"], orderOnBookBuy["price"]), event="listenBuy")
+            msg = format_sse(data="Ordem de compra de {0}x {1} por R${2} foi executada com sucesso".format(orderOnBookBuy["quantity"], orderOnBookBuy["code"], orderOnBookBuy["price"]), event="listenBuy")
             orderOnBookBuy["announcer"].announce(msg=msg)
             return None
     return orderToExecute
@@ -323,10 +329,32 @@ def tryBuyStock(orderToExecute):
 
             bookBuy.remove(orderToExecute)
 
-            msg = format_sse(data="Ordem de venda de {0}x {1} por {2} foi executada com sucesso".format(order["quantity"], order["code"], order["price"]), event="listenSell")
+            msg = format_sse(data="Ordem de venda de {0}x {1} por R${2} foi executada com sucesso".format(order["quantity"], order["code"], order["price"]), event="listenSell")
             order["announcer"].announce(msg=msg)
             return None
     return orderToExecute
+
+def addOrderBuyTimer(order):
+    global bookBuy
+    while order["timer"] < order["timeToExecute"]:
+        order["timer"] += 1
+        print(order["timer"])
+        time.sleep(1)
+    bookBuy.remove(order)
+    msg = format_sse(data="Ordem de compra {0}x {1} por R${2} expirou".format(order["quantity"], order["code"], order["price"]), event="listenBuy")
+    order["announcer"].announce(msg=msg)
+    print("Venceu ordem de compra")
+
+def addOrderSellTimer(order):
+    global bookSell
+    while order["timer"] < order["timeToExecute"]:
+        order["timer"] += 1
+        print(order["timer"])
+        time.sleep(1)
+    bookSell.remove(order)
+    msg = format_sse(data="Ordem de venda {0}x {1} por R${2} expirou".format(order["quantity"], order["code"], order["price"]), event="listenSell")
+    order["announcer"].announce(msg=msg)
+    print("Venceu ordem de venda")
 
 
 def findAlertIndex(id):

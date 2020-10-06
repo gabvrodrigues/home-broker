@@ -111,6 +111,12 @@
                                     <input type="text" class="form-control" v-model="stockToBuy.price">
                                 </div>
                             </div>
+                            <div class="col-4 ">
+                                <div class="form-group">
+                                    <label for="exampleInputPassword1">Tempo da ordem</label>
+                                    <input type="text" class="form-control" v-model="stockToBuy.time">
+                                </div>
+                            </div>
                             <div class="col-4 my-auto">
                                 <button type="button" class="btn btn-success m-2" v-on:click="buyStock()">
                                     Comprar </button>
@@ -135,6 +141,12 @@
                                 <div class="form-group">
                                     <label for="exampleInputPassword1">Preço</label>
                                     <input type="text" class="form-control" v-model="stockToSell.price">
+                                </div>
+                            </div>
+                            <div class="col-4 ">
+                                <div class="form-group">
+                                    <label for="exampleInputPassword1">Tempo da ordem</label>
+                                    <input type="text" class="form-control" v-model="stockToSell.time">
                                 </div>
                             </div>
                             <div class="col-4 my-auto">
