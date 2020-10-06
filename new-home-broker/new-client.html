@@ -42,7 +42,7 @@
                             v-on:click="option = 'sellStock'">Vender ação</button>
                     </div>
                     <div class="row">
-                        <button type="button" class="btn btn-secondary btn-block m-2">Ver
+                        <button type="button" class="btn btn-secondary btn-block m-2" v-on:click="showMyWallet()">Ver
                             minha carteira</button>
                     </div>
                     <div class="row">
@@ -142,6 +142,18 @@
                             </div>
                         </div>
                     </div>
+                    <div v-if="option == 'showMyWallet'" class="ml-3">
+                        <div class="row">
+                            <span v-if="myWallet.length == 0">Você não possui nenhuma ação na carteira</span>
+                            <div class="card m-2" style="width: 16rem;" v-for="stock in myWallet">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ stock.code }}</h5>
+                                    <h2> R$ {{ stock.price.toFixed(2) }} </h2>
+                                    <span>Quantidade: {{ stock.quantity }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -172,6 +184,7 @@
             option: '',
             stockCode: '',
             myQuoteList: [],
+            myWallet: [],
             stockToBuy: {},
             stockToSell: {}
         },
@@ -230,6 +243,15 @@
                 try {
                     const response = await axios.get(`http://localhost:5000/show-my-quote-list/${this.id}`);
                     this.myQuoteList = response.data.quoteList;
+                } catch (error) {
+                    console.error(error);
+                }
+            },
+            async showMyWallet() {
+                this.option = 'showMyWallet';
+                try {
+                    const response = await axios.get(`http://localhost:5000/show-my-wallet/${this.id}`);
+                    this.myWallet = response.data.stockList;
                 } catch (error) {
                     console.error(error);
                 }

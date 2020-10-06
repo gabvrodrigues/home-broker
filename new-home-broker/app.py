@@ -67,7 +67,8 @@ def format_sse(data: str, event=None) -> str:
 @app.route("/connect/<id>", methods=["GET"])
 def connect(id):
     global clients
-    clients.append({"id": id, "stockList": [], "quoteList": []})
+    clients.append({"id": id, "stockList": [{"code": "PETR4", "price": 15.87, "quantity": 100}, {"code": "VALE3", "price": 54.76, "quantity": 100}, {"code": "MGLU3", "price": 89.90, "quantity": 100}], 
+    "quoteList": [stocks[0], stocks[1], stocks[2]]})
     return {"message": "Cliente conectado com sucesso!"}, 200
 
 
@@ -90,11 +91,11 @@ def buyStock():
     "price": content["price"], "announcer": announcer}
 
     bookBuy.append(order)
-    orderId = tryBuyStock(order)
-    if orderId != None:
-        return {"message": "Ordem de compra de {0}x {1} por R${2} foi cadastrada com sucesso! Você será notificado quando a ordem for executada!".format(order["quantity"], order["code"], order["price"]), "orderId": orderId}, 200
+    orderToBuy = tryBuyStock(order)
+    if orderToBuy == None:
+        return {"message": "Ordem de compra de {0}x {1} por R${2} foi cadastrada com sucesso! Você será notificado quando a ordem for executada!".format(order["quantity"], order["code"], order["price"]), "orderId": orderToBuy}, 200
     else:
-        return {"message": "Ordem de compra de {0}x {1} por R${2} foi executada com sucesso!".format(order["quantity"], order["code"], order["price"]), "orderId": orderId}, 200
+        return {"message": "Ordem de compra de {0}x {1} por R${2} foi executada com sucesso!".format(order["quantity"], order["code"], order["price"]), "orderId": orderToBuy['id']}, 200
 
 @app.route("/sell-stock", methods=["POST"])
 def sellStock():
@@ -103,13 +104,24 @@ def sellStock():
     announcer = MessageAnnouncer()
     order = {"id": uuid.uuid4(), "userId": content["userId"], "code": content["code"], "quantity": content["quantity"], 
     "price": content["price"], "announcer": announcer}
-    bookSell.append(order)
-    orderId = trySellStock(order)
+
+    # procura se o stock está na lista do cliente
+    clientSellerIndex = findClientIndex(order["userId"])
+    stock = findStockInMyWallet(order["code"], clients[clientSellerIndex]["stockList"])
+
+    if(stock == None or int(stock["quantity"]) < int(order['quantity'])):
+        return {"message": "Ordem de venda inválida!", "orderId": None}, 200
     
-    if orderId != None:
-        return {"message": "Ordem de venda de {0}x {1} por R${2} foi cadastrada com sucesso! Você será notificado quando a ordem for executada!".format(order["quantity"], order["code"], order["price"]), "orderId": orderId}, 200
+    bookSell.append(order)
+    orderToSell = trySellStock(order, stock)
+    
+    if orderToSell != None:
+        return {"message": "Ordem de venda de {0}x {1} por R${2} foi cadastrada com sucesso! Você será notificado quando a ordem for executada!".format(order["quantity"], 
+        order["code"], order["price"]), "orderId": orderToSell['id']}, 200
+    elif orderToSell == -1:
+        return {"message": "Ordem de venda inválida!", "orderId": None}, 200
     else:
-        return {"message": "Ordem de venda de {0}x {1} por R${2} foi executada com sucesso!".format(order["quantity"], order["code"], order["price"]), "orderId": orderId}, 200
+        return {"message": "Ordem de venda de {0}x {1} por R${2} foi executada com sucesso!".format(orderToSell["quantity"], order["code"], order["price"]), "orderId": orderToSell["id"]}, 200
 
 @app.route("/show-my-quote-list/<id>", methods=["GET"])
 def showMyQuoteList(id):
@@ -119,6 +131,15 @@ def showMyQuoteList(id):
         return {"message": "Erro ao listar cotações: cliente não encontrado!"}, 500
     
     return {"quoteList": clients[index]["quoteList"]}, 200
+
+@app.route("/show-my-wallet/<id>", methods=["GET"])
+def showMyWallet(id):
+    global clients
+    index = findClientIndex(id)
+    if index < 0:
+        return {"message": "Erro ao listar carteira: cliente não encontrado!"}, 500
+    
+    return {"stockList": clients[index]["stockList"]}, 200
 
 
 @app.route("/add-stock-to-my-quote-list", methods=["POST"])
@@ -189,49 +210,94 @@ def listenSellStock(id):
 
     return flask.Response(stream(id), mimetype="text/event-stream")
 
-def trySellStock(orderToExecute):
+def trySellStock(orderToExecute, stock):
     global bookBuy
-    for order in bookBuy:
-         if(order["code"] == orderToExecute["code"] and order["quantity"] >= orderToExecute["quantity"] 
-            and order['price'] == orderToExecute["price"]):
-            msg = format_sse(data="Ordem de compra de {0}x {1} por {2} foi executada com sucesso".format(order["quantity"], order["code"], order["price"]), event="listenBuy")
-            order["announcer"].announce(msg=msg)
+    clientSellerIndex = findClientIndex(orderToExecute["userId"])
+    for orderOnBookBuy in bookBuy:
+        if(orderOnBookBuy["code"] == orderToExecute["code"] and orderOnBookBuy["quantity"] >= orderToExecute["quantity"] 
+        and orderOnBookBuy['price'] == orderToExecute["price"]):
+            clientBuyerIndex = findClientIndex(orderOnBookBuy["userId"])
+            print(int(orderOnBookBuy["quantity"]), int(orderToExecute["quantity"]))
+            if(int(orderOnBookBuy["quantity"]) < int(orderToExecute["quantity"])):
+                stock["quantity"] = int(orderToExecute["quantity"]) - int(orderOnBookBuy["quantity"])
+                # se for igual a quantidade total possuida   
+            elif(int(orderOnBookBuy["quantity"]) == int(orderToExecute["quantity"])):
+                indexStock = findStockIndex(orderToExecute["code"])
+                clients[clientSellerIndex]["stockList"].remove(stock)
+                clients[clientSellerIndex]["quoteList"].remove(stocks[indexStock])
+                bookSell.remove(orderToExecute)
+
+            else:
+                return -1
+            
+            # atualiza cliente comprador
+            indexStock = findStockIndex(orderToExecute["code"])
+            stockBought = {"code": orderToExecute["code"], "price": orderToExecute["price"], "quantity": orderOnBookBuy["quantity"]}
+            
+            # procura se o stock já está na lista do cliente
+            oldStockBuyer = findStockInMyWallet(stockBought["code"], clients[clientBuyerIndex]["stockList"])
+            if oldStockBuyer != None:
+                oldStockBuyer["price"] = ((float(oldStockBuyer["quantity"]) * float(oldStockBuyer["price"])) + (float(stockBought["quantity"]) * float(stockBought["price"]))) / (int(oldStockBuyer["quantity"]) + int(stockBought["quantity"]))
+                oldStockBuyer["quantity"] = int(oldStockBuyer["quantity"]) + int(stockBought["quantity"])
+            else:
+                clients[clientBuyerIndex]["stockList"].append(stockBought)
+                clients[clientBuyerIndex]["quoteList"].append(stocks[indexStock])
+            
+            bookBuy.remove(orderOnBookBuy)
+
+            msg = format_sse(data="Ordem de compra de {0}x {1} por {2} foi executada com sucesso".format(orderOnBookBuy["quantity"], orderOnBookBuy["code"], orderOnBookBuy["price"]), event="listenBuy")
+            orderOnBookBuy["announcer"].announce(msg=msg)
             return None
-    return orderToExecute["id"]
+    return orderToExecute
 
 def tryBuyStock(orderToExecute):
     global bookSell
     stockAddSucess = 0
-    clientIndex = findClientIndex(orderToExecute["userId"])
+    clientBuyerIndex = findClientIndex(orderToExecute["userId"])
+    clientSellerIndex = None
     for order in bookSell:
         if(order["code"] == orderToExecute["code"] and order["quantity"] >= orderToExecute["quantity"] 
         and order['price'] == orderToExecute["price"]):
-            # procura se o stock já está na lista do cliente
-            for stock in clients[clientIndex]["stockList"]:
-                if stock["code"] == orderToExecute["code"]:
-                    stock["price"] = (float(stock["quantity"] * stock["price"]) + float(orderToExecute["quantity"] * orderToExecute["price"])) / int(stock["quantity"] + orderToExecute["quantity"])
-                    stock["quantity"] = int(stock["quantity"]) + int(orderToExecute["quantity"])
-                    stockAddSucess = 1
-            # se for stock nova, adiciona pela primeira vez   
-            if stockAddSucess == 0:
-                clients[clientIndex]["stockList"].append({"code": orderToExecute["code"], "quantity": orderToExecute["quantity"], "price": orderToExecute["price"]})
-                clients[clientIndex]["quoteList"].append(order)
-                stockAddSucess = 1
+            print(order, orderToExecute)
+            clientSellerIndex = findClientIndex(order["userId"])
+            # procura se o stock já está na lista do cliente comprador
+            oldStockBuyer = findStockInMyWallet(order["code"], clients[clientBuyerIndex]["stockList"])
+            if(oldStockBuyer != None):
+                oldStockBuyer["price"] = ((float(oldStockBuyer["quantity"]) * float(oldStockBuyer["price"])) + (float(orderToExecute["quantity"]) * float(orderToExecute["price"]))) / (int(oldStockBuyer["quantity"]) + int(orderToExecute["quantity"]))
+                oldStockBuyer["quantity"] = int(oldStockBuyer["quantity"]) + int(orderToExecute["quantity"])
+            # se for stock nova, adiciona pela primeira vez
+            else:
+                indexStock = findStockIndex(orderToExecute["code"])
+                clients[clientBuyerIndex]["stockList"].append({"code": orderToExecute["code"], "quantity": orderToExecute["quantity"], "price": orderToExecute["price"]})
+                clients[clientBuyerIndex]["quoteList"].append(stocks[indexStock])
             
             # desconta quantidade comprada da ordem de venda se ainda sobrar quantidade para vender
             if orderToExecute["quantity"] < order["quantity"]:
                 order["quantity"] = int(order["quantity"]) - int(orderToExecute["quantity"])
+                stockToReduce = findStockInMyWallet(order["code"], clients[clientSellerIndex]["stockList"])
+                stockToReduce["quantity"] -= int(orderToExecute["quantity"])
             # senão deleta toda a ordem de venda
             else:
                 bookSell.remove(order)
+                stockToRemove = findStockInMyWallet(order["code"], clients[clientSellerIndex]["stockList"])
+                clients[clientSellerIndex]["stockList"].remove(stockToRemove)
+                # atualiza cliente vendedor
+                indexStock = findStockIndex(orderToExecute["code"])
+                clients[clientSellerIndex]["quoteList"].remove(stocks[indexStock])
 
             bookBuy.remove(orderToExecute)
-            print(bookSell, bookBuy)
 
             msg = format_sse(data="Ordem de venda de {0}x {1} por {2} foi executada com sucesso".format(order["quantity"], order["code"], order["price"]), event="listenSell")
             order["announcer"].announce(msg=msg)
-            return None
-    return orderToExecute["id"]
+            return orderToExecute
+    return None
+
+def findStockInMyWallet(code, myWallet):
+    for index, stock in enumerate(myWallet):
+        if stock['code'] == code:
+            return stock
+    else:
+        return None
 
 def findClientIndex(id):
     global clients
