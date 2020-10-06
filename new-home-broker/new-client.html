@@ -46,7 +46,8 @@
                             minha carteira</button>
                     </div>
                     <div class="row">
-                        <button type="button" class="btn btn-warning btn-block m-2">Adicionar alerta de preço</button>
+                        <button type="button" class="btn btn-warning btn-block m-2"
+                            v-on:click="option = 'createAlert'">Adicionar alerta de preço</button>
                     </div>
                 </div>
                 <div class="col-10">
@@ -154,6 +155,42 @@
                             </div>
                         </div>
                     </div>
+                    <div v-if="option == 'createAlert'" class="ml-3">
+                        <div class="row">
+                            <div class="col-4 ">
+                                <div class="form-group">
+                                    <label for="exampleInputPassword1">Código da ação</label>
+                                    <input type="text" class="form-control" v-model="stockToAlert.code">
+                                </div>
+                            </div>
+                            <div class="col-4 ">
+                                <div class="form-group">
+                                    <label for="exampleInputPassword1">Preço</label>
+                                    <input type="text" class="form-control" v-model="stockToAlert.price">
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="exampleRadios"
+                                        id="exampleRadios1" v-model="stockToAlert.type" value="buy">
+                                    <label class="form-check-label" for="exampleRadios1">
+                                        Compra
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="exampleRadios"
+                                        id="exampleRadios2" v-model="stockToAlert.type" value="sell">
+                                    <label class="form-check-label" for="exampleRadios2">
+                                        Venda
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-4 my-auto">
+                                <button type="button" class="btn btn-warning m-2" v-on:click="createAlert()">
+                                    Criar Alerta </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -186,7 +223,8 @@
             myQuoteList: [],
             myWallet: [],
             stockToBuy: {},
-            stockToSell: {}
+            stockToSell: {},
+            stockToAlert: {},
         },
         mounted: function () {
             this.connectToServer()
@@ -288,6 +326,24 @@
                                 alert(e.data)
                             });
                         }
+                    }).catch((error) => {
+                        alert(error.response.data.message);
+                    }).finally(() => {
+                        this.stockCode = '';
+                        this.option = '';
+                    });
+            },
+            async createAlert() {
+                if (this.stockToAlert.code == '' || this.stockToAlert.price == '' || this.stockToAlert.type == '') return
+                axios.post("http://localhost:5000/create-alert",
+                    { "userId": this.id, ...this.stockToAlert }).then((response) => {
+                        let alertId = response.data.alertId
+                        alert(response.data.message)
+                        var eventSource = new EventSource("http://localhost:5000/listen-alert/" + alertId);
+                        eventSource.addEventListener("listenAlert", function (e) {
+                            alert(e.data)
+                        });
+
                     }).catch((error) => {
                         alert(error.response.data.message);
                     }).finally(() => {

@@ -14,7 +14,7 @@ clients = []
 stocks = [{"code": "PETR4", "price": 15.87}, {"code": "VALE3", "price": 54.76}, {"code": "MGLU3", "price": 89.90}]
 bookBuy = []
 bookSell = []
-teste = 0
+alerts = []
 
 def updateStockPrice():
     global stocks
@@ -22,6 +22,15 @@ def updateStockPrice():
         n = random.uniform(-1,1) # The random() method in random module generates a float number between 0 and 1.
         stock['price'] = round(stock['price'] + n, 2)
         print(stock)
+        for alert in alerts:
+            if(alert["code"] == stock["code"] and float(stock["price"]) <= float(alert["price"]) and alert["type"] == "buy"):
+                msg = format_sse(data="ALERTA DE PREÇO! A ação {0} caiu para R${1}".format(alert["code"], alert["price"]), event="listenAlert")
+                alert["announcer"].announce(msg=msg)
+                alerts.remove(alert)
+            elif(alert["code"] == stock["code"] and float(stock["price"]) >= float(alert["price"]) and alert["type"] == "sell"):
+                msg = format_sse(data="ALERTA DE PREÇO! A ação {0} subiu para R${1}".format(alert["code"], alert["price"]), event="listenAlert")
+                alert["announcer"].announce(msg=msg)
+                alerts.remove(alert)
     threading.Timer(2, updateStockPrice).start()
     return
 
@@ -141,6 +150,17 @@ def showMyWallet(id):
     
     return {"stockList": clients[index]["stockList"]}, 200
 
+@app.route("/create-alert", methods=["POST"])
+def createAlert():
+    global alerts
+    content = request.get_json(silent=True)
+    announcer = MessageAnnouncer()
+    alert = {"id": uuid.uuid4(), "code": content["code"], "price": content["price"], 
+    "type": content["type"], "announcer": announcer}
+    alerts.append(alert)
+    
+    return {"message": "Alerta de {0} para {1} em R${2} foi criado com sucesso!".format(alert["type"], alert["code"], alert["price"])}, 200
+
 
 @app.route("/add-stock-to-my-quote-list", methods=["POST"])
 def addStockToMyQuoteList():
@@ -207,6 +227,19 @@ def listenSellStock(id):
         while True:
             orderToExecute = newOrdersBuy.get()  # blocks until a new message arrives
             yield orderToExecute
+
+    return flask.Response(stream(id), mimetype="text/event-stream")
+
+@app.route("/listen-alert/<id>", methods=["GET"])
+def listenAlert(id):
+    global alerts
+    def stream(id):
+        global alerts
+        alertIndex = findAlertIndex(id)
+        newAlert = alerts[alertIndex]["announcer"].listen()  # returns a queue.Queue
+        while True:
+            alertToNotify = newAlert.get()  # blocks until a new message arrives
+            yield alertToNotify
 
     return flask.Response(stream(id), mimetype="text/event-stream")
 
@@ -291,6 +324,15 @@ def tryBuyStock(orderToExecute):
             order["announcer"].announce(msg=msg)
             return orderToExecute
     return None
+
+
+def findAlertIndex(id):
+    global alerts
+    for index, item in enumerate(alerts):
+        if item["id"] == id:
+            return index
+    else:
+        return -1
 
 def findStockInMyWallet(code, myWallet):
     for index, stock in enumerate(myWallet):
