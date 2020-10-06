@@ -132,7 +132,6 @@ def sellStock():
     orderTimer.start()
 
     orderToSell = trySellStock(order, stock)
-    
     if orderToSell != None:
         return {"message": "Ordem de venda de {0}x {1} por R${2} foi cadastrada com sucesso! Você será notificado quando a ordem for executada!".format(order["quantity"], 
         order["code"], order["price"]), "orderId": orderToSell['id']}, 200
@@ -168,7 +167,7 @@ def createAlert():
     "type": content["type"], "announcer": announcer}
     alerts.append(alert)
     
-    return {"message": "Alerta de {0} para {1} em R${2} foi criado com sucesso!".format(alert["type"], alert["code"], alert["price"])}, 200
+    return {"message": "Alerta de {0} para {1} em R${2} foi criado com sucesso!".format(alert["type"], alert["code"], alert["price"]), "alertId": alert["id"]}, 200
 
 
 @app.route("/add-stock-to-my-quote-list", methods=["POST"])
@@ -301,6 +300,7 @@ def tryBuyStock(orderToExecute):
         if(order["code"] == orderToExecute["code"] and order["quantity"] >= orderToExecute["quantity"] 
         and order['price'] == orderToExecute["price"]):
             print(order, orderToExecute)
+            
             clientSellerIndex = findClientIndex(order["userId"])
             # procura se o stock já está na lista do cliente comprador
             oldStockBuyer = findStockInMyWallet(order["code"], clients[clientBuyerIndex]["stockList"])

@@ -369,30 +369,7 @@
 
         }
     })
-
-    // var source = new EventSource("{{ url_for('sse.stream') }}");
-    // source.addEventListener('publish', function(event) {
-    //     var data = JSON.parse(event.data);
-    //     console.log("The server says " + data.message);
-    // }, false);
-    // source.addEventListener('error', function(event) {
-    //     console.log("Error"+ event)
-    //     alert("Failed to connect to event stream. Is Redis running?");
-    // }, false);
-    // const evtSource = new EventSource("http://localhost:5000/ping");
-    // evtSource.addEventListener("update", function (event) {
-    //     // Logic to handle status updates
-    //     console.log(event)
-    // });
-    // evtSource.addEventListener("end", function (event) {
-    //     console.log('Handling end....')
-    //     evtSource.close();
-    // });
-    // const axios = require('axios');
-
-    // var targetContainer = document.getElementById("test");
-
-
+    
     function uuidv4() {
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
             var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
