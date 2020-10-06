@@ -1,5 +1,7 @@
 import queue
 import uuid
+import threading
+import random
 
 import flask
 from flask_cors import CORS
@@ -12,7 +14,19 @@ clients = []
 stocks = [{"code": "PETR4", "price": 15.87}, {"code": "VALE3", "price": 54.76}, {"code": "MGLU3", "price": 89.90}]
 bookBuy = []
 bookSell = []
+teste = 0
 
+def updateStockPrice():
+    global stocks
+    for stock in stocks:
+        n = random.uniform(-1,1) # The random() method in random module generates a float number between 0 and 1.
+        stock['price'] = round(stock['price'] + n, 2)
+        print(stock)
+    threading.Timer(2, updateStockPrice).start()
+    return
+
+# chama a função do timer depois de declarar as funcões
+updateStockPrice()
 
 @app.route("/")
 def hello_world():
@@ -37,9 +51,6 @@ class MessageAnnouncer:
                 del self.listeners[i]
 
 
-announcer = MessageAnnouncer()
-
-
 def format_sse(data: str, event=None) -> str:
     """Formats a string and an event name in order to follow the event stream convention.
 
@@ -51,16 +62,6 @@ def format_sse(data: str, event=None) -> str:
     if event is not None:
         msg = f"event: {event}\n{msg}"
     return msg
-
-
-@app.route("/ping")
-def ping():
-    msg = format_sse(data="pong", event="teste")
-    announcer.announce(msg=msg)
-    # resp = flask.Response("Foo bar baz")
-    # resp.headers['Access-Control-Allow-Origin'] = '*'
-    # resp.headers['Content-Type'] = 'text/event-stream'
-    return {}, 200
 
 
 @app.route("/connect/<id>", methods=["GET"])
@@ -84,27 +85,31 @@ def disconnect(id):
 def buyStock():
     global clients, bookBuy
     content = request.get_json(silent=True)
-    order = {"id": uuid.uuid4(), "userId": content["userId"], "code": content["code"], "quantity": content["quantity"], "price": content["price"]}
+    announcer = MessageAnnouncer()
+    order = {"id": uuid.uuid4(), "userId": content["userId"], "code": content["code"], "quantity": content["quantity"], 
+    "price": content["price"], "announcer": announcer}
+
     bookBuy.append(order)
     orderId = tryBuyStock(order)
-    print(orderId)
     if orderId != None:
-        return {"message": "Ordem cadastrada com sucesso! Você será notificado quando a ordem for executada!", "orderId": orderId}, 200
+        return {"message": "Ordem de compra de {0}x {1} por R${2} foi cadastrada com sucesso! Você será notificado quando a ordem for executada!".format(order["quantity"], order["code"], order["price"]), "orderId": orderId}, 200
     else:
-        return {"message": "Ordem executada com sucesso!", "orderId": orderId}, 200
+        return {"message": "Ordem de compra de {0}x {1} por R${2} foi executada com sucesso!".format(order["quantity"], order["code"], order["price"]), "orderId": orderId}, 200
 
 @app.route("/sell-stock", methods=["POST"])
 def sellStock():
     global clients, bookBuy, bookSell
     content = request.get_json(silent=True)
-    order = {"id": uuid.uuid4(), "userId": content["userId"], "code": content["code"], "quantity": content["quantity"], "price": content["price"]}
+    announcer = MessageAnnouncer()
+    order = {"id": uuid.uuid4(), "userId": content["userId"], "code": content["code"], "quantity": content["quantity"], 
+    "price": content["price"], "announcer": announcer}
     bookSell.append(order)
     orderId = trySellStock(order)
     
     if orderId != None:
-        return {"message": "Ordem cadastrada com sucesso! Você será notificado quando a ordem for executada!", "orderId": orderId}, 200
+        return {"message": "Ordem de venda de {0}x {1} por R${2} foi cadastrada com sucesso! Você será notificado quando a ordem for executada!".format(order["quantity"], order["code"], order["price"]), "orderId": orderId}, 200
     else:
-        return {"message": "Ordem executada com sucesso!", "orderId": orderId}, 200
+        return {"message": "Ordem de venda de {0}x {1} por R${2} foi executada com sucesso!".format(order["quantity"], order["code"], order["price"]), "orderId": orderId}, 200
 
 @app.route("/show-my-quote-list/<id>", methods=["GET"])
 def showMyQuoteList(id):
@@ -160,8 +165,11 @@ def removeStockToMyQuoteList():
 
 @app.route("/listen-buy-stock/<id>", methods=["GET"])
 def listenBuyStock(id):
+    global bookBuy
     def stream(id):
-        newOrdersSell = announcer.listen()  # returns a queue.Queue
+        global bookBuy
+        orderIndex = findOrderBuyIndex(id)
+        newOrdersSell = bookBuy[orderIndex]["announcer"].listen()  # returns a queue.Queue
         while True:
             orderToExecute = newOrdersSell.get()  # blocks until a new message arrives
             yield orderToExecute
@@ -170,41 +178,58 @@ def listenBuyStock(id):
 
 @app.route("/listen-sell-stock/<id>", methods=["GET"])
 def listenSellStock(id):
+    global bookSell
     def stream(id):
-        newOrdersBuy = announcer.listen()  # returns a queue.Queue
+        global bookSell
+        orderIndex = findOrderSellIndex(id)
+        newOrdersBuy = bookSell[orderIndex]["announcer"].listen()  # returns a queue.Queue
         while True:
             orderToExecute = newOrdersBuy.get()  # blocks until a new message arrives
             yield orderToExecute
 
     return flask.Response(stream(id), mimetype="text/event-stream")
 
-@app.route("/listen", methods=["GET"])
-def listen():
-    def stream():
-        messages = announcer.listen()  # returns a queue.Queue
-        while True:
-            msg = messages.get()  # blocks until a new message arrives
-            yield msg
-
-    return flask.Response(stream(), mimetype="text/event-stream")
-
 def trySellStock(orderToExecute):
     global bookBuy
     for order in bookBuy:
          if(order["code"] == orderToExecute["code"] and order["quantity"] >= orderToExecute["quantity"] 
             and order['price'] == orderToExecute["price"]):
-            msg = format_sse(data="Ordem Executada com sucesso", event="teste")
-            announcer.announce(msg=msg)
+            msg = format_sse(data="Ordem de compra de {0}x {1} por {2} foi executada com sucesso".format(order["quantity"], order["code"], order["price"]), event="listenBuy")
+            order["announcer"].announce(msg=msg)
             return None
     return orderToExecute["id"]
 
 def tryBuyStock(orderToExecute):
     global bookSell
+    stockAddSucess = 0
+    clientIndex = findClientIndex(orderToExecute["userId"])
     for order in bookSell:
-         if(order["code"] == orderToExecute["code"] and order["quantity"] >= orderToExecute["quantity"] 
-            and order['price'] == orderToExecute["price"]):
-            msg = format_sse(data="Ordem Executada com sucesso", event="teste")
-            announcer.announce(msg=msg)
+        if(order["code"] == orderToExecute["code"] and order["quantity"] >= orderToExecute["quantity"] 
+        and order['price'] == orderToExecute["price"]):
+            # procura se o stock já está na lista do cliente
+            for stock in clients[clientIndex]["stockList"]:
+                if stock["code"] == orderToExecute["code"]:
+                    stock["price"] = (float(stock["quantity"] * stock["price"]) + float(orderToExecute["quantity"] * orderToExecute["price"])) / int(stock["quantity"] + orderToExecute["quantity"])
+                    stock["quantity"] = int(stock["quantity"]) + int(orderToExecute["quantity"])
+                    stockAddSucess = 1
+            # se for stock nova, adiciona pela primeira vez   
+            if stockAddSucess == 0:
+                clients[clientIndex]["stockList"].append({"code": orderToExecute["code"], "quantity": orderToExecute["quantity"], "price": orderToExecute["price"]})
+                clients[clientIndex]["quoteList"].append(order)
+                stockAddSucess = 1
+            
+            # desconta quantidade comprada da ordem de venda se ainda sobrar quantidade para vender
+            if orderToExecute["quantity"] < order["quantity"]:
+                order["quantity"] = int(order["quantity"]) - int(orderToExecute["quantity"])
+            # senão deleta toda a ordem de venda
+            else:
+                bookSell.remove(order)
+
+            bookBuy.remove(orderToExecute)
+            print(bookSell, bookBuy)
+
+            msg = format_sse(data="Ordem de venda de {0}x {1} por {2} foi executada com sucesso".format(order["quantity"], order["code"], order["price"]), event="listenSell")
+            order["announcer"].announce(msg=msg)
             return None
     return orderToExecute["id"]
 
@@ -230,3 +255,20 @@ def findStockInQuoteListIndex(code, quoteList):
             return index
     else:
         return -1
+
+def findOrderBuyIndex(id):
+    global bookBuy
+    for index, item in enumerate(bookBuy):
+        if item["id"] == id:
+                return index
+        else:
+            return -1
+
+def findOrderSellIndex(id):
+    global bookSell
+    for index, item in enumerate(bookSell):
+        if item["id"] == id:
+                return index
+        else:
+            return -1
+

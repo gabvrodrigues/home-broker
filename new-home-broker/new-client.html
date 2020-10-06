@@ -137,7 +137,7 @@
                                 </div>
                             </div>
                             <div class="col-4 my-auto">
-                                <button type="button" class="btn btn-success m-2" v-on:click="sellStock()">
+                                <button type="button" class="btn btn-danger m-2" v-on:click="sellStock()">
                                     Vender </button>
                             </div>
                         </div>
@@ -229,7 +229,6 @@
                 this.option = 'showMyQuoteList';
                 try {
                     const response = await axios.get(`http://localhost:5000/show-my-quote-list/${this.id}`);
-                    console.log(response)
                     this.myQuoteList = response.data.quoteList;
                 } catch (error) {
                     console.error(error);
@@ -244,11 +243,10 @@
                         alert(response.data.message)
                         if (orderId != null) {
                             var eventSource = new EventSource("http://localhost:5000/listen-buy-stock/" + orderId);
-                            eventSource.addEventListener("teste", function (e) {
+                            eventSource.addEventListener("listenBuy", function (e) {
                                 alert(e.data)
                             });
                         }
-
                     }).catch((error) => {
                         alert(error.response.data.message);
                     }).finally(() => {
@@ -264,12 +262,11 @@
                         alert(response.data.message)
                         if (orderId != null) {
                             var eventSource = new EventSource("http://localhost:5000/listen-sell-stock/" + orderId);
-                            eventSource.addEventListener("teste", function (e) {
+                            eventSource.addEventListener("listenSell", function (e) {
                                 alert(e.data)
                             });
                         }
                     }).catch((error) => {
-                        console.log(error)
                         alert(error.response.data.message);
                     }).finally(() => {
                         this.stockCode = '';
